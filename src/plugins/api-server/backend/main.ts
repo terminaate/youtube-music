@@ -8,12 +8,12 @@ import registerCallback from '@/providers/song-info';
 import { createBackend } from '@/utils';
 
 import { JWTPayloadSchema } from './scheme';
-import { registerAuth, registerControl } from './routes';
+import { registerAuth, registerControl, registerWebsocket } from './routes';
 
 import { type APIServerConfig, AuthStrategy } from '../config';
 
 import type { BackendType } from './types';
-import type { RepeatMode } from '@/types/datahost-get-state';
+import { ipcMain } from 'electron';
 
 export const backend = createBackend<BackendType, APIServerConfig>({
   async start(ctx) {
@@ -23,22 +23,6 @@ export const backend = createBackend<BackendType, APIServerConfig>({
     registerCallback((songInfo) => {
       this.songInfo = songInfo;
     });
-
-    ctx.ipc.on('ytmd:player-api-loaded', () => {
-      ctx.ipc.send('ytmd:setup-time-changed-listener');
-      ctx.ipc.send('ytmd:setup-repeat-changed-listener');
-      ctx.ipc.send('ytmd:setup-volume-changed-listener');
-    });
-
-    ctx.ipc.on(
-      'ytmd:repeat-changed',
-      (mode: RepeatMode) => (this.currentRepeatMode = mode),
-    );
-
-    ctx.ipc.on(
-      'ytmd:volume-changed',
-      (newVolume: number) => (this.volume = newVolume),
-    );
 
     this.run(config.hostname, config.port);
   },
@@ -66,12 +50,6 @@ export const backend = createBackend<BackendType, APIServerConfig>({
 
     this.app.use('*', cors());
 
-    // for web remote control
-    this.app.use('*', async (ctx, next) => {
-      ctx.header('Access-Control-Request-Private-Network', 'true');
-      await next();
-    });
-
     // middlewares
     this.app.use('/api/*', async (ctx, next) => {
       if (config.authStrategy !== AuthStrategy.NONE) {
@@ -96,14 +74,15 @@ export const backend = createBackend<BackendType, APIServerConfig>({
     });
 
     // routes
-    registerControl(
-      this.app,
-      ctx,
-      () => this.songInfo,
-      () => this.currentRepeatMode,
-      () => this.volume,
-    );
+    registerControl(this.app, ctx, () => this.songInfo);
     registerAuth(this.app, ctx);
+
+    if (config.websocket) ipcMain.once("ytmd:player-api-loaded", () => {
+      ctx.window.webContents.send("ytmd:setup-repeat-changed-listener")
+      ctx.window.webContents.send("ytmd:setup-volume-changed-listener")
+
+      registerWebsocket(ctx);
+    })
 
     // swagger
     this.app.openAPIRegistry.registerComponent(
