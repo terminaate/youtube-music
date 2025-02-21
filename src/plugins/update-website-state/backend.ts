@@ -9,11 +9,14 @@ import registerCallback, {
   SongInfoEvent,
 } from '@/providers/song-info';
 
+const IDLE_TIME = 15_000;
+
 export const backend = createBackend<
   {
     config?: UpdateWebsiteStateConfig;
     socket?: ReturnType<typeof io>;
     lastSongInfo?: SongInfo;
+    idleTimeout?: NodeJS.Timeout;
     sendData(songInfo: SongInfo): void;
     disconnectFromSocket(): void;
     connectToSocket(): void;
@@ -40,6 +43,8 @@ export const backend = createBackend<
       return;
     }
 
+    clearTimeout(this.idleTimeout);
+
     const hangulFillerUnicodeCharacter = '\u3164'; // This is an empty character
     const paddedInfoKeys: (keyof SongInfo)[] = ['title', 'artist', 'album'];
     for (const key of paddedInfoKeys) {
@@ -56,6 +61,10 @@ export const backend = createBackend<
       isPlaying: songInfo ? !songInfo.isPaused : false,
       position: songInfo?.elapsedSeconds ?? 0,
     });
+
+    this.idleTimeout = setTimeout(() => {
+      this.socket?.emit('ytm:update-current-state', null);
+    }, IDLE_TIME);
   },
 
   setupListeners(ctx: BackendContext<UpdateWebsiteStateConfig>) {
