@@ -44,7 +44,7 @@ jobs:
 
       # Only vite build without release if it is a fork, or it is a pull-request
       - name: Vite Build
-        if: github.repository == 'th-ch/youtube-music' && github.event_name == 'pull_request'
+        # if: github.repository == 'th-ch/youtube-music' && github.event_name == 'pull_request'
         run: |
           pnpm build
 
@@ -71,7 +71,7 @@ jobs:
           pnpm release:linux
 
       - name: Build and release on Windows
-        if: startsWith(matrix.os, 'windows'
+        if: startsWith(matrix.os, 'windows')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -167,4 +167,4 @@ jobs:
           commit_message: Update changelog for ${{ env.VERSION_TAG }}
           file_pattern: "changelog.md"
           commit_user_name: CI
-          commit_user_email: th-ch@users.noreply.github.com
+          commit_user_email: terminaate@users.noreply.github.com
